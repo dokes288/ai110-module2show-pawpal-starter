@@ -9,7 +9,7 @@ The design uses four classes:
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from datetime import date, time, timedelta
+from datetime import date, time
 from typing import List, Optional
 
 
@@ -22,7 +22,6 @@ class Task:
     scheduled_time: Optional[time] = None
     frequency: str = "once"
     completed: bool = False
-    due_date: Optional[date] = None
 
     def update_task(self, **changes) -> "Task":
         """Return a new Task with updated values."""
@@ -107,35 +106,7 @@ class Scheduler:
         """Return all incomplete tasks for the owner's pets."""
         return [task for task in self.get_all_tasks() if not task.completed]
 
-    def filter_tasks(
-        self,
-        tasks: Optional[List[Task]] = None,
-        *,
-        completed: Optional[bool] = None,
-        pet_name: Optional[str] = None,
-    ) -> List[Task]:
-        """Filter tasks by completion status and/or pet name."""
-        source = tasks if tasks is not None else self.get_all_tasks()
-        filtered_tasks = source
-
-        if completed is not None:
-            filtered_tasks = [task for task in filtered_tasks if task.completed is completed]
-
-        if pet_name is not None:
-            pet_name_lower = pet_name.lower()
-            matching_pets = [pet for pet in self.owner.pets if pet.name.lower() == pet_name_lower]
-            if matching_pets:
-                filtered_tasks = [
-                    task
-                    for task in filtered_tasks
-                    if any(task in pet.tasks for pet in matching_pets)
-                ]
-            else:
-                filtered_tasks = [task for task in filtered_tasks if pet_name_lower in task.title.lower()]
-
-        return filtered_tasks
-
-    def sort_by_time(self, tasks: Optional[List[Task]] = None) -> List[Task]:
+    def organize_by_time(self, tasks: Optional[List[Task]] = None) -> List[Task]:
         """Sort tasks by scheduled time, then by title."""
         source = tasks if tasks is not None else self.get_all_tasks()
         return sorted(
@@ -146,67 +117,6 @@ class Scheduler:
                 task.title.lower(),
             ),
         )
-
-    def organize_by_time(self, tasks: Optional[List[Task]] = None) -> List[Task]:
-        """Backward-compatible wrapper around sort_by_time."""
-        return self.sort_by_time(tasks)
-
-    def find_conflicts(self, tasks: Optional[List[Task]] = None) -> List[tuple[Task, Task]]:
-        """Return pairs of tasks that are scheduled at the same time."""
-        source = tasks if tasks is not None else self.get_all_tasks()
-        conflicts: List[tuple[Task, Task]] = []
-        seen: List[tuple[Task, Task]] = []
-
-        for index, left in enumerate(source):
-            for right in source[index + 1 :]:
-                if left.scheduled_time is None or right.scheduled_time is None:
-                    continue
-                if left.scheduled_time == right.scheduled_time:
-                    pair = (left, right)
-                    if pair not in seen and (right, left) not in seen:
-                        seen.append(pair)
-                        conflicts.append(pair)
-
-        return conflicts
-
-    def get_conflict_warning(self, tasks: Optional[List[Task]] = None) -> Optional[str]:
-        """Return a lightweight warning message when tasks overlap, or None if none are found."""
-        conflicts = self.find_conflicts(tasks)
-        if not conflicts:
-            return None
-
-        lines = ["Warning: scheduling conflict detected."]
-        for left, right in conflicts:
-            lines.append(f"- {left.title} and {right.title} both start at {left.scheduled_time.strftime('%H:%M')}.")
-        return "\n".join(lines)
-
-    def _create_next_occurrence(self, task: Task, plan_date: date) -> Task:
-        """Create a follow-up task for the next occurrence of a recurring task."""
-        if task.frequency not in {"daily", "weekly"}:
-            return task
-
-        if task.frequency == "daily":
-            next_date = plan_date + timedelta(days=1)
-        else:
-            next_date = plan_date + timedelta(weeks=1)
-
-        next_time = task.scheduled_time or time(0, 0)
-        return replace(task, completed=False, scheduled_time=next_time, due_date=next_date)
-
-    def complete_task(self, task: Task, plan_date: date) -> Task:
-        """Mark a task complete and create a fresh task for the next occurrence if needed."""
-        completed_task = replace(task, completed=True)
-
-        if task.frequency in {"daily", "weekly"}:
-            next_occurrence = self._create_next_occurrence(task, plan_date)
-            for pet in self.owner.pets:
-                if task in pet.tasks:
-                    pet.tasks.remove(task)
-                    pet.tasks.append(next_occurrence)
-                    break
-            return completed_task
-
-        return completed_task
 
     def summarize(self) -> str:
         """Return a simple summary of the owner's upcoming tasks."""

@@ -46,6 +46,19 @@ pip install -r requirements.txt
 
 Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
 
+Sample Output:
+
+(.venv) PS C:\Users\dokek\Downloads\New folder (2)\ai110-module2show-pawpal-starter> python main.py
+========================================
+Today's Schedule
+========================================
+Daily plan for Nze's pets:
+07:00 — Rex: Morning walk (30 min) [priority: high] — priority 'high', fit into open time
+08:00 — Rex: Feeding (10 min) [priority: high] — fixed time, priority 'high'
+17:30 — Luna: Evening playtime (20 min) [priority: medium] — priority 'medium', fit into open time
+18:00 — Luna: Litter box cleaning (10 min) [priority: medium] — fixed time, priority 'medium'
+(.venv) PS C:\Users\dokek\Downloads\New folder (2)\ai110-module2show-pawpal-starter>
+
 ```
 # e.g.:
 # Daily plan for Biscuit (Golden Retriever):
@@ -72,14 +85,14 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
+The scheduler now includes a few lightweight but practical behaviors for everyday pet care planning.
 
-| Feature | Method(s) | Notes |
-|---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Feature | Method | Notes |
+|---------|--------|-------|
+| Sorting behavior | `Scheduler.sort_by_time()` | Orders pending tasks by their scheduled time, then by title, so the plan is easy to read in chronological order. |
+| Filtering behavior | `Scheduler.filter_tasks()` | Filters tasks by completion status and/or pet name, making it easier to focus on a specific pet or view pending versus completed work. |
+| Conflict detection logic | `Scheduler.find_conflicts()` and `Scheduler.get_conflict_warning()` | Detects tasks that share the same scheduled time and returns a warning message instead of crashing the program. |
+| Recurring task logic | `Scheduler.complete_task()` and `_create_next_occurrence()` | When a daily or weekly task is completed, the scheduler creates a fresh pending task for the next occurrence using `timedelta`. |
 
 ## 📸 Demo Walkthrough
 
