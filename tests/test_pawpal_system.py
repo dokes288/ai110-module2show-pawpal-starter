@@ -3,7 +3,7 @@ from datetime import date, time
 from pawpal_system import Owner, Pet, Scheduler, Task
 
 
-def test_sort_by_time_orders_tasks_by_time_value() -> None:
+def test_sorting_correctness_returns_tasks_in_chronological_order() -> None:
     owner = Owner(name="Nze")
     scheduler = Scheduler(owner)
 
@@ -33,7 +33,7 @@ def test_filter_tasks_supports_status_and_pet_name_filters() -> None:
     assert [task.title for task in filtered] == ["Rex morning walk"]
 
 
-def test_completed_daily_task_creates_next_occurrence() -> None:
+def test_recurrence_logic_marks_daily_task_complete_and_creates_next_day_task() -> None:
     owner = Owner(name="Nze")
     pet = Pet(name="Rex", species="Dog")
     owner.add_pet(pet)
@@ -52,7 +52,7 @@ def test_completed_daily_task_creates_next_occurrence() -> None:
     assert pending_tasks[0].due_date == date(2026, 7, 13)
 
 
-def test_find_conflicts_detects_same_time_tasks() -> None:
+def test_conflict_detection_flags_duplicate_times() -> None:
     owner = Owner(name="Nze")
     rex = Pet(name="Rex", species="Dog")
     luna = Pet(name="Luna", species="Cat")
