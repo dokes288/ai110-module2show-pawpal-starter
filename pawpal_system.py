@@ -152,8 +152,14 @@ class Scheduler:
         return self.sort_by_time(tasks)
 
     def find_conflicts(self, tasks: Optional[List[Task]] = None) -> List[tuple[Task, Task]]:
-        """Return pairs of tasks that are scheduled at the same time."""
-        source = tasks if tasks is not None else self.get_all_tasks()
+        """Return pairs of tasks that are scheduled at the same time.
+        Defaults to PENDING tasks only when no explicit list is given --
+        this matters now that complete_task() keeps a completed record
+        instead of discarding it, since without this a just-completed
+        recurring task would spuriously "conflict" with its own freshly
+        created next occurrence at the same scheduled_time.
+        """
+        source = tasks if tasks is not None else self.get_pending_tasks()
         conflicts: List[tuple[Task, Task]] = []
         seen: List[tuple[Task, Task]] = []
 
@@ -194,17 +200,20 @@ class Scheduler:
         return replace(task, completed=False, scheduled_time=next_time, due_date=next_date)
 
     def complete_task(self, task: Task, plan_date: date) -> Task:
-        """Mark a task complete and create a fresh task for the next occurrence if needed."""
+        """Mark a task complete, keeping the completed record in the pet's
+        task list (rather than discarding it), and for daily/weekly tasks
+        also append a fresh pending task for the next occurrence.
+        """
         completed_task = replace(task, completed=True)
 
-        if task.frequency in {"daily", "weekly"}:
-            next_occurrence = self._create_next_occurrence(task, plan_date)
-            for pet in self.owner.pets:
-                if task in pet.tasks:
-                    pet.tasks.remove(task)
-                    pet.tasks.append(next_occurrence)
-                    break
-            return completed_task
+        for pet in self.owner.pets:
+            for index, existing in enumerate(pet.tasks):
+                if existing is task:
+                    pet.tasks[index] = completed_task
+                    if task.frequency in {"daily", "weekly"}:
+                        next_occurrence = self._create_next_occurrence(task, plan_date)
+                        pet.tasks.append(next_occurrence)
+                    return completed_task
 
         return completed_task
 

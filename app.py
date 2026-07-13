@@ -1,7 +1,67 @@
 import streamlit as st
-from datetime import time
+from datetime import datetime, time
+from typing import Optional
 
-from pawpal import Owner, Pet, SchedulePlanner, Task
+from pawpal_system import Owner, Pet, Scheduler, Task
+
+
+def build_scheduler_view(task_inputs: list[dict]) -> tuple[list[dict], list[dict], Optional[str]]:
+    """Convert UI task entries into scheduler-friendly tasks and return sorted rows, conflicts, and warnings."""
+    owner = Owner(name="Owner")
+    pet = Pet(name="Pet", species="other")
+    owner.add_pet(pet)
+
+    scheduler_tasks: list[Task] = []
+    for task in task_inputs:
+        preferred_time = task.get("preferred_time")
+        scheduled_time = None
+        if preferred_time:
+            try:
+                scheduled_time = datetime.strptime(preferred_time, "%H:%M").time()
+            except ValueError:
+                scheduled_time = None
+
+        scheduler_task = Task(
+            title=task["title"],
+            description=task.get("description", ""),
+            scheduled_time=scheduled_time,
+            frequency="daily" if task.get("is_recurring") else "once",
+            completed=task.get("status") == "done",
+        )
+        scheduler_tasks.append(scheduler_task)
+        pet.add_task(scheduler_task)
+
+    scheduler = Scheduler(owner)
+    sorted_tasks = scheduler.sort_by_time(scheduler_tasks)
+    display_rows = [
+        {
+            "Title": task.title,
+            "Time": task.scheduled_time.strftime("%H:%M") if task.scheduled_time else "Unscheduled",
+            "Frequency": task.frequency,
+            "Status": "done" if task.completed else "pending",
+        }
+        for task in sorted_tasks
+    ]
+
+    conflict_rows: list[dict] = []
+    for left, right in scheduler.find_conflicts(sorted_tasks):
+        conflict_rows.append(
+            {
+                "Task": left.title,
+                "Time": left.scheduled_time.strftime("%H:%M") if left.scheduled_time else "Unscheduled",
+                "Conflicts with": right.title,
+            }
+        )
+
+    warning = None
+    if conflict_rows:
+        warning = (
+            "Some tasks overlap in time. This may make it harder to care for your pet smoothly. "
+            "Try moving one task to a different time."
+        )
+
+    return display_rows, conflict_rows, warning
+
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -83,8 +143,13 @@ if st.button("Add task"):
         st.success(f"Added task: {task_title.strip()}")
 
 if st.session_state.tasks:
-    st.write("Current tasks:")
-    st.table(st.session_state.tasks)
+    display_rows, conflict_rows, warning = build_scheduler_view(st.session_state.tasks)
+    st.write("Current tasks (sorted by time):")
+    st.table(display_rows)
+    if warning:
+        st.warning(warning)
+        st.caption("Conflicting items")
+        st.table(conflict_rows)
 else:
     st.info("No tasks yet. Add one above.")
 
@@ -96,51 +161,11 @@ if st.button("Generate schedule"):
     if not st.session_state.tasks:
         st.warning("Add at least one task before generating a schedule.")
     else:
-        owner = Owner(name=owner_name or "Owner", available_minutes=available_minutes)
-        pet = Pet(name=pet_name or "Pet", species=species)
-        planner = SchedulePlanner(owner=owner, pet=pet, start_time=start_time.strftime("%H:%M"))
-
-        task_objects = [
-            Task(
-                title=task["title"],
-                duration_minutes=task["duration_minutes"],
-                priority=task["priority"],
-                preferred_time=task.get("preferred_time"),
-                pet_name=task.get("pet_name"),
-                status=task.get("status", "pending"),
-                is_recurring=task.get("is_recurring", False),
-            )
-            for task in st.session_state.tasks
-        ]
-
-        schedule = planner.build_daily_plan(task_objects)
-
-        if schedule:
-            st.success("Schedule generated successfully.")
-            st.markdown("### Daily plan")
-            schedule_data = [
-                {
-                    "Start": item.start_time,
-                    "End": item.end_time,
-                    "Task": item.task.title,
-                    "Duration": f"{item.task.duration_minutes} min",
-                    "Priority": item.task.priority,
-                    "Reason": item.reason,
-                }
-                for item in schedule
-            ]
-            st.table(schedule_data)
-            st.markdown("### Plan explanation")
-            st.code(planner.explain_plan())
-        else:
-            st.info("No tasks could be scheduled within the available time.")
-            st.markdown(planner.explain_plan())
-
-        if planner.skipped_tasks:
-            st.markdown("### Skipped tasks")
-            st.write(
-                [
-                    {"Title": task.title, "Duration": task.duration_minutes, "Priority": task.priority}
-                    for task in planner.skipped_tasks
-                ]
-            )
+        display_rows, conflict_rows, warning = build_scheduler_view(st.session_state.tasks)
+        st.success("Schedule generated successfully.")
+        st.markdown("### Sorted tasks")
+        st.table(display_rows)
+        if warning:
+            st.warning(warning)
+            st.caption("Conflicting items")
+            st.table(conflict_rows)

@@ -22,6 +22,26 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Project files
+
+The implementation is organized across a small set of focused files:
+
+- [app.py](app.py): Streamlit interface for entering owner, pet, and task details and presenting the sorted schedule.
+- [pawpal_system.py](pawpal_system.py): Core scheduler model with the Task, Pet, Owner, and Scheduler classes and the implemented algorithms.
+- [main.py](main.py): Terminal demo that exercises the scheduler logic in a simple console workflow.
+- [tests/test_pawpal_system.py](tests/test_pawpal_system.py): Regression tests for sorting, filtering, recurrence, and conflict detection.
+- [diagrams/uml_final.mmd](diagrams/uml_final.mmd) and [diagrams/uml_final.png](diagrams/uml_final.png): Final UML source and exported diagram.
+
+## Features
+
+The current PawPal+ implementation includes the following scheduling capabilities:
+
+- Sorting by time: tasks are ordered chronologically so the owner can review the plan in a clear, time-based sequence.
+- Filtering by status and pet: the scheduler can focus on pending work, completed items, or tasks belonging to a specific pet.
+- Conflict warnings: overlapping tasks with the same scheduled time are detected and surfaced as an actionable warning in the UI.
+- Daily recurrence: completing a recurring task creates the next occurrence for the next day or week, keeping the schedule up to date.
+- Streamlit presentation: the app shows the sorted task view in a polished table and highlights conflicts with clear visual feedback.
+
 ## Getting started
 
 ### Setup
@@ -69,6 +89,15 @@ Daily plan for Nze's pets:
 
 ## 🧪 Testing PawPal+
 
+The tests cover the scheduler’s core behaviors:
+
+-Sorting correctness: verifies tasks are ordered chronologically
+-Recurrence logic: checks that completing a daily task creates a new   task for the next day
+-Conflict detection: confirms duplicate scheduled times are flagged
+-Filtering behavior: ensures tasks can be filtered by pet name and completion status
+-Warning behavior: checks that conflicts produce a readable warning message instead of crashing.
+
+
 ```bash
 # Run the full test suite:
 pytest
@@ -82,6 +111,42 @@ Sample test output:
 ```
 # Paste your pytest output here
 ```
+The full test suite completed successfully.
+
+Result: 11 tests passed
+Command: python -m pytest
+
+Coverage run completed successfully.
+
+Result: 11 tests passed
+Overall coverage: 90%
+Command: python -m pytest --cov
+
+(.venv) PS C:\Users\doke\Downloads\New folder (2)\ai110-module2show-pawpal-starter> python -m pytest
+========================= test session starts =========================
+platform win32 -- Python 3.10.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\doke\Downloads\New folder (2)\ai110-module2show-pawpal-starter
+plugins: anyio-4.14.1
+collected 11 items                                                     
+
+tests\test_pawpal.py ......                                      [ 54%]
+tests\test_pawpal_system.py .....                                [100%]
+
+========================= 11 passed in 0.04s ==========================
+(.venv) PS C:\Users\doke\Downloads\New folder (2)\ai110-module2show-pawpal-starter> 
+
+Confidence Level:-
+
+I’m basing the rating on the verified test and coverage results from the suite you just ran.
+
+Based on the verified results from the latest run:
+
+11/11 tests passed
+90% coverage
+Confidence Level: 4.5/5 stars
+
+That puts it in the “high confidence” range for this project’s current scope and test coverage.
+
 
 ## 📐 Smarter Scheduling
 
