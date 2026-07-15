@@ -22,10 +22,12 @@ classDiagram
     class Task {
         +str title
         +str description
+        +str priority
         +time scheduled_time
         +str frequency
         +bool completed
         +date due_date
+        +__post_init__()
         +update_task()
         +mark_complete()
         +reschedule()
@@ -39,17 +41,28 @@ classDiagram
         +filter_tasks(completed, pet_name)
         +sort_by_time(tasks)
         +organize_by_time(tasks)
+        +prioritize_tasks(tasks)
         +find_conflicts(tasks)
         +get_conflict_warning(tasks)
+        +next_available_slot(duration_minutes)
+        +find_free_gaps(day_start, day_end)
+        +analyze_day_load(day_start, day_end)
         +_create_next_occurrence(task, plan_date)
         +complete_task(task, plan_date)
         +summarize()
+        +save_to_json(file_path)
+        +load_from_json(file_path)$
+        +_task_to_dict(task)$
+        +_task_from_dict(data)$
     }
 
-    note for Scheduler "Handles ordering, filtering, conflict detection, recurring-task progression, and readable summaries"
+    note for Task "priority validated in __post_init__ against PRIORITY_RANK {high, medium, low}"
+
+    note for Scheduler "Advanced capabilities: weighted prioritization (prioritize_tasks), slot/gap/load analysis (next_available_slot, find_free_gaps, analyze_day_load — shared DEFAULT_SLOT_MINUTES granularity), recurring-task progression (complete_task), and JSON persistence (save_to_json / load_from_json)."
 
     Owner "1" --> "0..*" Pet : owns
     Pet "1" --> "0..*" Task : contains
     Scheduler --> Owner : manages
     Scheduler ..> Task : organizes
     Scheduler ..> Task : detects_conflicts_with
+    Scheduler ..> Task : analyzes_day_load

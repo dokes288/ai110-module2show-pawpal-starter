@@ -5,8 +5,39 @@ from typing import Optional
 from pawpal_system import Owner, Pet, Scheduler, Task
 
 
-def build_scheduler_view(task_inputs: list[dict]) -> tuple[list[dict], list[dict], Optional[str]]:
-    """Convert UI task entries into scheduler-friendly tasks and return sorted rows, conflicts, and warnings."""
+def priority_badge(priority: str) -> str:
+    badges = {"high": "🔴 High", "medium": "🟠 Medium", "low": "🟢 Low"}
+    return badges.get(priority.lower(), f"⚪ {priority.title()}")
+
+
+def status_badge(done: bool) -> str:
+    return "✅ Done" if done else "🟡 Pending"
+
+
+def task_type_icon(task_title: str) -> str:
+    lowered = task_title.lower()
+    if "walk" in lowered:
+        return "🚶"
+    if "feed" in lowered or "food" in lowered:
+        return "🍽️"
+    if "med" in lowered:
+        return "💊"
+    if "play" in lowered:
+        return "🎾"
+    if "litter" in lowered or "clean" in lowered:
+        return "🧹"
+    if "water" in lowered:
+        return "💧"
+    return "🐾"
+
+
+def build_scheduler_view(
+    task_inputs: list[dict],
+    *,
+    requested_duration: int,
+    day_start: time,
+) -> tuple[list[dict], list[dict], Optional[str], Optional[time], dict]:
+    """Convert UI task entries into scheduler-friendly tasks and return display rows, conflict info, slot suggestion, and day-load stats."""
     owner = Owner(name="Owner")
     pet = Pet(name="Pet", species="other")
     owner.add_pet(pet)
@@ -24,6 +55,7 @@ def build_scheduler_view(task_inputs: list[dict]) -> tuple[list[dict], list[dict
         scheduler_task = Task(
             title=task["title"],
             description=task.get("description", ""),
+            priority=task.get("priority", "medium"),
             scheduled_time=scheduled_time,
             frequency="daily" if task.get("is_recurring") else "once",
             completed=task.get("status") == "done",
@@ -32,13 +64,15 @@ def build_scheduler_view(task_inputs: list[dict]) -> tuple[list[dict], list[dict
         pet.add_task(scheduler_task)
 
     scheduler = Scheduler(owner)
-    sorted_tasks = scheduler.sort_by_time(scheduler_tasks)
+    sorted_tasks = scheduler.prioritize_tasks(scheduler_tasks)
     display_rows = [
         {
-            "Title": task.title,
+            "Type": task_type_icon(task.title),
+            "Task": task.title,
+            "Priority": priority_badge(task.priority),
             "Time": task.scheduled_time.strftime("%H:%M") if task.scheduled_time else "Unscheduled",
             "Frequency": task.frequency,
-            "Status": "done" if task.completed else "pending",
+            "Status": status_badge(task.completed),
         }
         for task in sorted_tasks
     ]
@@ -60,7 +94,18 @@ def build_scheduler_view(task_inputs: list[dict]) -> tuple[list[dict], list[dict
             "Try moving one task to a different time."
         )
 
-    return display_rows, conflict_rows, warning
+    next_slot = scheduler.next_available_slot(
+        duration_minutes=requested_duration,
+        day_start=day_start,
+        tasks=scheduler.get_pending_tasks(),
+    )
+
+    day_load = scheduler.analyze_day_load(
+        day_start=day_start,
+        tasks=scheduler.get_pending_tasks(),
+    )
+
+    return display_rows, conflict_rows, warning, next_slot, day_load
 
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
@@ -143,9 +188,33 @@ if st.button("Add task"):
         st.success(f"Added task: {task_title.strip()}")
 
 if st.session_state.tasks:
-    display_rows, conflict_rows, warning = build_scheduler_view(st.session_state.tasks)
-    st.write("Current tasks (sorted by time):")
+    display_rows, conflict_rows, warning, next_slot, day_load = build_scheduler_view(
+        st.session_state.tasks,
+        requested_duration=int(duration),
+        day_start=start_time,
+    )
+    pending_count = sum(1 for row in display_rows if "Pending" in row["Status"])
+    done_count = len(display_rows) - pending_count
+    metric_col1, metric_col2, metric_col3 = st.columns(3)
+    with metric_col1:
+        st.metric("Pending", pending_count)
+    with metric_col2:
+        st.metric("Done", done_count)
+    with metric_col3:
+        st.metric("Day load", f"{day_load['load_percent']:.0f}%")
+
+    st.write("Current tasks (priority-based schedule):")
     st.table(display_rows)
+    largest = day_load["largest_free_gap"]
+    if largest:
+        st.info(
+            f"Day is {day_load['load_percent']:.0f}% booked · {day_load['free_minutes']} free min · "
+            f"biggest open window {largest[0].strftime('%H:%M')}–{largest[1].strftime('%H:%M')}."
+        )
+    if next_slot:
+        st.success(f"Next available {int(duration)}-minute slot starts at {next_slot.strftime('%H:%M')}.")
+    else:
+        st.warning(f"No open {int(duration)}-minute slot found in the planning window.")
     if warning:
         st.warning(warning)
         st.caption("Conflicting items")
@@ -161,10 +230,22 @@ if st.button("Generate schedule"):
     if not st.session_state.tasks:
         st.warning("Add at least one task before generating a schedule.")
     else:
-        display_rows, conflict_rows, warning = build_scheduler_view(st.session_state.tasks)
+        display_rows, conflict_rows, warning, next_slot, day_load = build_scheduler_view(
+            st.session_state.tasks,
+            requested_duration=int(duration),
+            day_start=start_time,
+        )
         st.success("Schedule generated successfully.")
-        st.markdown("### Sorted tasks")
+        st.markdown("### Priority-based schedule")
         st.table(display_rows)
+        st.caption(
+            f"Day load: {day_load['load_percent']:.0f}% booked · {day_load['free_minutes']} free minutes "
+            f"across {day_load['total_minutes']} planned."
+        )
+        if next_slot:
+            st.success(f"Recommended slot for a {int(duration)}-minute task: {next_slot.strftime('%H:%M')}")
+        else:
+            st.warning(f"No open {int(duration)}-minute slot found in the planning window.")
         if warning:
             st.warning(warning)
             st.caption("Conflicting items")

@@ -1,0 +1,50 @@
+%%{init: {'themeVariables': {'noteBkgColor': '#FFFFFF', 'noteTextColor': '#000000', 'noteBorderColor': '#000000'}}}%%
+classDiagram
+    class Owner {
+        +str name
+        +int available_minutes
+        +int preferred_start_hour
+        +int preferred_end_hour
+        +bool prefer_outdoor_morning
+        +update_profile()
+        +set_available_time()
+        +validate()
+    }
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +float age_years
+        +str notes
+        +update_pet_info()
+    }
+    class Task {
+        +str id
+        +str title
+        +int duration_minutes
+        +str priority
+        +str category
+        +time fixed_time
+        +time earliest_time
+        +time latest_time
+        +str recurrence
+        +int weekly_day
+        +update_task()
+        +get_priority_value() int
+        +applies_on(date) bool
+        +is_outdoor() bool
+    }
+    class SchedulePlanner {
+        +Owner owner
+        +Pet pet
+        +str start_time
+        +list~dict~ scheduled_tasks
+        +list~dict~ skipped_tasks
+        +build_daily_plan()
+        +explain_plan()
+    }
+    note for SchedulePlanner "scheduled_tasks entry (was ScheduledTask):\ntask, start_time, end_time, reason\n\nskipped_tasks entry:\ntask, reason"
+    Owner "1" --> "1" Pet : owns
+    SchedulePlanner --> Owner : uses
+    SchedulePlanner --> Pet : uses
+    SchedulePlanner --> Task : schedules
